@@ -49,6 +49,23 @@ class Bunny(cmd.Cmd):
                      "\tCreates a queue with a default binding provided by the server.",
                      "\tBind to a specific exchange with 'create_binding'."])
 
+  def do_purge_queue(self, name):
+    try:
+      self.check_conn()
+      if not name or name is None:
+        self.help_purge_queue()
+      else:
+        msgcount = self.chan.queue_purge(name, nowait=False)
+        print "Purged %i messages\n" % msgcount
+    except Exception as out: 
+      print out
+      self.help_purge_queue()
+
+  def help_purge_queue(self):
+    print "\n".join(["\tpurge_queue <qname>",
+                     "\tPurges a queue, leaving it with a message count of 0, without interrupting consumers."])
+
+
   def do_qlist(self, s):
     print "\n"
     for exch, queues in self.qlist.iteritems():
@@ -174,10 +191,10 @@ class Bunny(cmd.Cmd):
                       "\tSends message to the given exchange."])
 
 
-  def do_dump_message(self, queue):
+  def do_dump_message(self, qname):
     """This only does a basic_get right now. You can't specify a particular message."""
     try:
-      msg = self.chan.basic_get(queue)
+      msg = self.chan.basic_get(qname)
       if msg is not None:
         print msg.body
       else: 
