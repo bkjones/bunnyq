@@ -67,7 +67,8 @@ class Bunny(cmd.Cmd):
           v.remove(name)
     except IOError as out:
       print out
-    except Exception:
+    except Exception as out:
+      print out
       self.help_delete_queue()
 
   def help_delete_queue(self):
@@ -159,8 +160,36 @@ class Bunny(cmd.Cmd):
                      "\tBinds given queue to named exchange"])
 
   def do_send_message(self, args):
-    (exchange, message) = string.split(args, ':')
-    self.chan.basic_publish(message, exchange)
+    try:
+        self.check_conn()
+        (exchange, message_txt) = string.split(args, ':')
+        message = amqp.Message(message_txt)
+        self.chan.basic_publish(message, exchange)
+    except Exception as out:
+      print out
+      self.help_send_message()
+
+  def help_send_message(self):
+    print "\n".join(["\tsend_message <exchange>:<msg>",
+                      "\tSends message to the given exchange."])
+
+
+  def do_dump_message(self, queue):
+    """This only does a basic_get right now. You can't specify a particular message."""
+    try:
+      msg = self.chan.basic_get(queue)
+      if msg is not None:
+        print msg.body
+      else: 
+        print "No messages in that queue" 
+    except Exception as out: 
+      print out
+      self.help_dump_message()
+
+  def help_dump_message(self):
+    print "\n".join(["\tdump_message <queue>",
+                      "\tPops a message off the queue and dumps the body to output."])
+
 
   def emptyline(self):
     pass
@@ -178,8 +207,3 @@ class Bunny(cmd.Cmd):
 
 shell = Bunny()
 shell.cmdloop()
-
-
-
-
-
