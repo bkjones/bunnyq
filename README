@@ -15,5 +15,10 @@ work. On my test machine (a mac), history works and completion doesn't.
 TODO: 
 =========
 Bunny is good for functionally testing creation and deletion of queues and
-creation of bindings. I'd like to add tests for sending and receiving
-messages before releasing it to the public. 
+creation of bindings. It can also do basic message send/receive testing, 
+and it can purge a queue of all messages you threw in there during your tests :) 
+
+This is not to say that the features are necessarily robust. Assumptions are made 
+that dictate, in some instances, that you do things in the most simplistic way allowable. 
+That said, it should be trivial to enhance bunny, and the only thing in the way of that 
+being done is that the itch isn't there (yet). 
