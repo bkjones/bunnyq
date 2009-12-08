@@ -57,7 +57,7 @@ class Bunny(cmd.Cmd):
       else:
         msgcount = self.chan.queue_purge(name, nowait=False)
         print "Purged %i messages\n" % msgcount
-    except Exception as out: 
+    except Exception as out:
       print out
       self.help_purge_queue()
 
@@ -194,12 +194,13 @@ class Bunny(cmd.Cmd):
   def do_dump_message(self, qname):
     """This only does a basic_get right now. You can't specify a particular message."""
     try:
-      msg = self.chan.basic_get(qname)
+      self.check_conn()
+      msg = self.chan.basic_get(qname, no_ack=True)
       if msg is not None:
         print msg.body
-      else: 
+      else:
         print "No messages in that queue" 
-    except Exception as out: 
+    except Exception as out:
       print out
       self.help_dump_message()
 
