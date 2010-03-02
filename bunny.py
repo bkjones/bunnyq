@@ -24,8 +24,9 @@ class Bunny(cmd.Cmd):
       print "Success!"
       """connection/channel creation success, change prompt"""
       self.prompt = "%s.%s: " % (host, vhost)
-    except Exception:
+    except Exception as out:
       print "Connection or channel creation failed"
+      print "Error was: ", out
 
   def do_create_queue(self, name):
     try:
@@ -125,7 +126,6 @@ class Bunny(cmd.Cmd):
       self.help_create_exchange()
 
 
-
   def help_create_exchange(self):
     print "\n".join(["\tcreate_exchange name=<name> [type=<type>]",
                      "\tCreate an exchange with given name. Type is 'direct' by default."])
@@ -140,7 +140,8 @@ class Bunny(cmd.Cmd):
         del self.qlist[name]
     except IOError as out:
       print out
-    except Exception:
+    except Exception as out:
+      print out 
       self.help_delete_exchange()
 
   def help_delete_exchange(self):
@@ -150,7 +151,7 @@ class Bunny(cmd.Cmd):
   def do_create_binding(self, bstring):
     try:
       self.check_conn()
-      d = parseargs(bstring)
+      d = self.parseargs(bstring)
       queue = d['queue']
       exchange = d['exchange']
       self.chan.queue_bind( queue, exchange )
@@ -167,9 +168,10 @@ class Bunny(cmd.Cmd):
         self.qlist["/"].remove(queue)
     except IOError as out:
       print out
-    except Exception:
+    except Exception as out:
       print "Invalid input. Here's some help: "
       self.help_create_binding()
+      print "Error was: ", out
 
 
   def help_create_binding(self):
@@ -204,11 +206,24 @@ class Bunny(cmd.Cmd):
       print out
       self.help_dump_message()
 
+
   def help_dump_message(self):
     print "\n".join(["\tdump_message <queue>",
                       "\tPops a message off the queue and dumps the body to output."])
 
+  def do_get_status(self,qname):
+    try:
+      self.check_conn()
+      q, msgcount, consumers = self.chan.queue_declare(queue=qname, passive=True)
+      print "%s: %d messages, %d consumers" % (q, msgcount, consumers) 
+      
+    except Exception as out:
+      print out
+      print self.help_get_status()
 
+  def help_get_status(self):
+      print "\n".join(["\tget_status <queue>",
+                        "\tReports number of messages and consumers for a queue"])
   def emptyline(self):
     pass
 
