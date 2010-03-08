@@ -94,6 +94,8 @@ class Bunny(cmd.Cmd):
                      "\tDeletes the named queue."])
 
   def check_conn(self):
+    """turns out this isn't really valid. You can have a 'chan' that is useless because
+    the server timed out the connection"""
     if not self.__dict__.has_key('chan'):
       raise IOError("You don't have a valid connection to the server. Run 'connect'")
     else:
