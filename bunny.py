@@ -8,22 +8,29 @@ import getpass
 class Bunny(cmd.Cmd):
   """Represents a session between a client and a RabbitMQ server, so you can pass commands
       using syntax like "bunny.connect(), bunny.delete_queue" etc. """
+  def __init__(self):
+    cmd.Cmd.__init__(self)
+    self.prompt = "--> "
+    self.qlist = {"/":[]}
+    self.host = ''
+    self.user = ''
+    self.password = ''
+    self.vhost = '/'
 
-  prompt = "--> "
-  qlist = {"/":[]}
   def do_connect(self, line):
-    host = raw_input("Host: ")
-    user = raw_input("Username: ")
-    password = getpass.getpass()
-    vhost = '/'
+
+    if not self.host:
+      self.host = raw_input("Host: ")
+      self.user = raw_input("Username: ")
+      self.password = getpass.getpass()
 
     try:
-      print "Trying connect to %s:%s as %s" % (host, vhost, user)
-      self.conn = amqp.Connection(userid=user, password=password, host=host, virtual_host=vhost, ssl=False)
+      print "Trying connect to %s:%s as %s" % (self.host, self.vhost, self.user)
+      self.conn = amqp.Connection(userid=self.user, password=self.password, host=self.host, virtual_host=self.vhost, ssl=False)
       self.chan = self.conn.channel()
       print "Success!"
       """connection/channel creation success, change prompt"""
-      self.prompt = "%s.%s: " % (host, vhost)
+      self.prompt = "%s.%s: " % (self.host, self.vhost)
     except Exception as out:
       print "Connection or channel creation failed"
       print "Error was: ", out
@@ -94,10 +101,10 @@ class Bunny(cmd.Cmd):
                      "\tDeletes the named queue."])
 
   def check_conn(self):
-    """turns out this isn't really valid. You can have a 'chan' that is useless because
-    the server timed out the connection"""
-    if not self.__dict__.has_key('chan'):
-      raise IOError("You don't have a valid connection to the server. Run 'connect'")
+    if len(self.conn.channels) < 2:
+      print "Connection appears to have been dropped. Trying reconnect..."
+      self.do_connect('')
+      #raise IOError("You don't have a valid connection to the server. Run 'connect'")
     else:
       return True
 
