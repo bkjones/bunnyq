@@ -18,15 +18,15 @@ class Bunny(cmd.Cmd):
         cmd.Cmd.__init__(self)
         self.prompt = "--> "
         self.qlist = {"/": []}
-        self.host = ''
-        self.user = ''
-        self.password = ''
+        self.host = None
+        self.user = None
+        self.password = None
         self.vhost = '/'
 
     def do_connect(self, line):
         if not self.host:
-            self.host = input("Host: ")
-            self.user = input("Username: ")
+            self.host = raw_input("Host: ")
+            self.user = raw_input("Username: ")
             self.password = getpass.getpass()
 
         try:
@@ -38,6 +38,17 @@ class Bunny(cmd.Cmd):
         except Exception as out:
             print("Connection or channel creation failed")
             print("Error was: ", out)
+
+    def do_list_users(self, name):
+        users = self.srv.get_users()
+        for user in users:
+            u = "Name: {name}\nAdmin: {administrator}\n".format(**user)
+            print u
+
+    def do_list_vhosts(self, name):
+        vhosts = self.srv.get_all_vhosts()
+        for vname in [i['name'] for i in vhosts]:
+            print vname
 
     def do_create_queue(self, name):
         try:
