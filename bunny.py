@@ -12,17 +12,20 @@ input = getattr(__builtins__, 'input', None) or raw_input
 def parse_keyval_args(func):
     @functools.wraps(func)
     def wrapper(inst, args):
+        cmd = func.__name__[3:]
         try:
             d = dict(arg.split('=') for arg in args.split())
         except ValueError:
             # there were probably spaces around the '='
-            raise ValueError("Invalid input: try removing spaces from around "
+            print("Invalid input: Bad arg list, or remove spaces from around "
                              "the '=' sign in your argument(s)")
+            inst.do_help(cmd)
         else:
             try:
                 return func(inst, **d)
             except TypeError as out:
                 print(out)
+                inst.do_help(cmd)
     return wrapper
 
 
@@ -61,8 +64,8 @@ class Bunny(cmd.Cmd):
             print("Connection or channel creation failed")
             print("Error was: ", out)
 
-    def request(self, call, help=self.do_help):
-        request = methodcaller(call)
+    def request(self, call, *args):
+        request = methodcaller(call, *args)
         try:
             val = request(self.srv)
         except api.PermissionError:
@@ -72,66 +75,44 @@ class Bunny(cmd.Cmd):
             return
         except (ValueError, IOError, http.HTTPError) as out:
             print(repr(type(out)), out)
-            help()
         except Exception as out:
             print(repr(type(out)), out)
         else:
             return val
 
-    def do_list_users(self, name):
-        try:
-            users = self.srv.get_users()
-        except api.PermissionError:
-            whoami = self.srv.get_whoami()
-            print("You don't have sufficient permissions to access the user"
-                  " listing. Login info: %s" % repr(whoami))
-            return
+    def do_list_users(self, line):
+        """
+        This is the docstring for do_list_users2. A call to do_help should
+        spit this out in the absence of a help_list_users2 method.
+        """
+        users = self.request('get_users')
         for user in users:
             u = "Name: {name}\nAdmin: {administrator}\n".format(**user)
             print u
 
     def do_list_vhosts(self, name):
-        vhosts = self.srv.get_all_vhosts()
+        vhosts = self.request('get_all_vhosts')
         for vname in [i['name'] for i in vhosts]:
             print vname
 
-    def do_create_queue(self, name):
-        try:
-            if not name:
-                raise ValueError("You need provide a name for the queue")
-            else:
-                self.srv.create_queue(name, self.vhost)
-        except ValueError as out:
-            print(repr(type(out)), out)
-            self.help_create_queue()
-        except IOError as out:
-            print(repr(type(out)), out)
-        except http.HTTPError as out:
-            print out
-            return
-        except Exception as out:
-            print(repr(type(out)), out)
-            self.help_create_queue()
+    @parse_keyval_args
+    def do_create_queue(self, vhost, qname):
+        res = self.request('create_queue', qname, vhost)
+        print res
 
     def help_create_queue(self):
         print("\n".join([
-                    "\tcreate_queue <qname>",
-                    "\tCreate a queue w/ default binding.",
+                    "\tcreate_queue vhost=<vhost> qname=<qname>",
+                    "\tCreate a queue named <qname> in vhost <vhost>",
                     "\tBind to a specific exchange with 'create_binding'."]))
 
-    def do_purge_queue(self, name):
-        try:
-            if not name or name is None:
-                self.help_purge_queue()
-            else:
-                msgcount = self.srv.purge_queue(self.vhost, name)
-                print("Purged %i messages\n" % msgcount)
-        except Exception as out:
-            print(out)
-            self.help_purge_queue()
+    @parse_keyval_args
+    def do_purge_queue(self, vhost, qname):
+        msgcount = self.request('purge_queue', vhost, qname)
+        print("Purged messages: %s\n" % msgcount)
 
     def help_purge_queue(self):
-        print("\n".join(["\tpurge_queue <qname>",
+        print("\n".join(["\tpurge_queue vhost=<vhost> qname=<qname>",
                          "\tPurges a queue of all content."]))
 
     def do_qlist(self, s):
@@ -159,34 +140,23 @@ class Bunny(cmd.Cmd):
     def do_queue_detail(self, args):
         pass
 
-    def do_delete_queue(self, name):
-        try:
-            self.srv.delete_queue(self.vhost, name)
-        except IOError as out:
-            print(out)
-        except Exception as out:
-            print(out)
-            self.help_delete_queue()
+    @parse_keyval_args
+    def do_delete_queue(self, vhost, qname):
+        self.request('delete_queue', vhost, qname)
 
     def help_delete_queue(self):
-        print("\n".join(["\tdelete_queue <qname>",
+        print("\n".join(["\tdelete_queue vhost=<vhost> qname=<qname>",
                          "\tDeletes the named queue."]))
 
     @parse_keyval_args
     def do_create_exchange(self, name, vhost='/', type='direct'):
-        if not name:
-            print("You must provide a name!")
-            self.help_create_exchange()
-        try:
-            self.srv.create_exchange(vhost, name, type)
-        except IOError as out:
-            print(out)
-        except Exception as out:
-            raise
+        self.request('create_exchange', vhost, name, type)
 
     def help_create_exchange(self):
-        print("\n".join(["\tcreate_exchange name=<name> [type=<type>]",
-                         "\tCreate an exchange with given name. Type is 'direct' by default."]))
+        lines =["\tcreate_exchange name=<name> [vhost=<vhost>] [type=<type>]",
+                "\tCreate exchange named <name> in vhost <vhost>.",
+                "\tType is 'direct' by default. Vhost is '/' by default."]
+        print("\n".join(lines))
 
     def do_xlist(self, s):
         print("\n")
@@ -202,34 +172,25 @@ class Bunny(cmd.Cmd):
                 print("\n")
         print('\n')
 
-    def do_delete_exchange(self, name):
-        try:
-            self.srv.delete_exchange(self.vhost, name)
-        except IOError as out:
-            print(out)
-        except Exception as out:
-            print(out)
-            self.help_delete_exchange()
+    @parse_keyval_args
+    def do_delete_exchange(self, vhost, name):
+        self.request('delete_exchange', vhost, name)
 
     def help_delete_exchange(self):
-        print("\n".join(["\tdelete_exchange <exchange>",
+        print("\n".join(["\tdelete_exchange vhost=<vhost> name=<exchange>",
                          "\tDeletes the named exchange."]))
 
     @parse_keyval_args
-    def do_create_binding(self, queue, exchange):
-        try:
-            self.srv.create_binding(self.vhost, queue, exchange)
-        except Exception as out:
-            print("Invalid input. Here's some help: ")
-            self.help_create_binding()
-            print("Error was: ", out)
+    def do_create_binding(self, vhost, qname, exchange):
+        self.request('create_binding', vhost, qname, exchange)
 
     def help_create_binding(self):
-        print("\n".join(["\tcreate_binding exchange=<exch> queue=<queue>",
-                         "\tBinds given queue to named exchange"]))
+        lines =["\tcreate_binding vhost=<vhost> exchange=<exch> qname=<qname>",
+                "\tBinds given queue to named exchange"]
+        print("\n".join(lines))
 
     @parse_keyval_args
-    def do_list_queue_bindings(self, queue, vhost):
+    def do_list_queue_bindings(self, qname, vhost):
         """
         Get a listing of all bindings for a named queue.
 
@@ -237,13 +198,7 @@ class Bunny(cmd.Cmd):
         :param str vhost: Vhost the qname lives in.
 
         """
-        vhost = '%2F' if vhost is '/' else vhost
-        try:
-            bindings = self.srv.get_queue_bindings(vhost, queue)
-        except http.HTTPError as out:
-            print(out)
-            return
-
+        bindings = self.request('get_queue_bindings', vhost, qname)
         if bindings:
             out_fmt = "{0:<20}|{1:<20}|{2:<20}|{3:<20}|{4:<20}"
             cell_line = ('-'*20+'+')*5
@@ -257,51 +212,41 @@ class Bunny(cmd.Cmd):
                 rt_key = binding['routing_key']
                 arguments = binding['arguments']
                 out_vhost = '/' if vhost is '%2F' else vhost
-                line = out_fmt.format(out_vhost, src_exch, queue,
+                line = out_fmt.format(out_vhost, src_exch, qname,
                                        rt_key, arguments)
                 print(line)
 
     def help_list_queue_bindings(self):
         print("\n".join(["\tlist_queue_bindings queue=<queue> vhost=<vhost>",
-                        "\tList binding details for the named queue"]))
+                         "\tList binding details for the named queue"]))
 
-    def do_send_message(self, args):
-        try:
-            exchange, message_txt = args.split(':')
-            self.srv.publish(self.vhost, exchange, None, message_txt)
-        except Exception as out:
-            print(out)
-            self.help_send_message()
+    @parse_keyval_args
+    def do_send_message(self, vhost, exchange, rt_key, msg):
+        self.request('publish', vhost, exchange, rt_key, msg)
 
     def help_send_message(self):
-        print("\n".join(["\tsend_message <exchange>:<msg>",
-                         "\tSends message to the given exchange."]))
+        lines = ["\tsend_message vhost=<vhost> exchange=<exchange>",
+                 " rt_key=<rt_key> msg=<msg>",
+                 "\tSends message <msg> to <exchange> using <rt_key>"]
+        print("\n".join(lines))
 
-
-    def do_dump_message(self, qname):
+    @parse_keyval_args
+    def do_dump_message(self, vhost, qname):
         """This only does a basic_get right now. You can't specify a particular message."""
-        try:
-            msg = self.srv.get_messages(self.vhost, qname)
-            if msg is not None:
-                print(msg.body)
-            else:
-                print("No messages in that queue")
-        except Exception as out:
-            print(out)
-            self.help_dump_message()
-
+        msg = self.request('get_messages', vhost, qname)
+        if msg is not None:
+            print(msg.body)
+        else:
+            print("No messages in that queue")
 
     def help_dump_message(self):
         print("\n".join(["\tdump_message <queue>",
                          "\tPops a message off the queue and dumps the body to output."]))
 
-    def do_get_status(self, qname):
-        try:
-            q_properties = self.srv.get_queue(self.vhost, qname)
-            print q_properties
-        except Exception as out:
-            print(out)
-            print(self.help_get_status())
+    @parse_keyval_args
+    def do_get_status(self, vhost, qname):
+        q_properties = self.request('get_queue', vhost, qname)
+        print q_properties
 
     def help_get_status(self):
         print("\n".join(["\tget_status <queue>",
