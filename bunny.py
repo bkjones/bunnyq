@@ -1,10 +1,11 @@
 #!/usr/bin/env python
+import argparse
 import cmd
 import functools
 import getpass
 from operator import methodcaller
-import sys
 from pyrabbit import api, http
+import yaml
 
 # prefer 'input' in 2.7 (req'd in 3.2). Fall back to raw_input for 2.6.
 input = getattr(__builtins__, 'input', None) or raw_input
@@ -29,27 +30,29 @@ def parse_keyval_args(func):
     return wrapper
 
 
-
 class Bunny(cmd.Cmd):
     """Represents a session between a client and a RabbitMQ server, so you can
      pass commands using syntax like "bunny.connect(), bunny.delete_queue" etc.
 
      """
 
-    def __init__(self):
+    def __init__(self, host=None, port=None, user=None, password=None):
         cmd.Cmd.__init__(self)
         self.prompt = "--> "
-        self.host = None
-        self.port = None
-        self.user = None
-        self.password = None
-        self.vhost = '/'
+        self.host = host
+        self.port = port
+        self.user = user
+        self.password = password
+        self.do_connect()
 
-    def do_connect(self, line):
+    def do_connect(self):
         if not self.host:
             self.host = raw_input("Host: ")
+        if not self.port:
             self.port = raw_input("Port: ")
+        if not self.user:
             self.user = raw_input("Username: ")
+        if not self.password:
             self.password = getpass.getpass()
 
         try:
@@ -58,10 +61,11 @@ class Bunny(cmd.Cmd):
                                   self.user,
                                   self.password)
             print("Success!")
+            print("Admin privileges: %s" % self.srv.has_admin_rights)
             #connection/channel creation success, change prompt
-            self.prompt = "%s.%s: " % (self.host, self.vhost)
+            self.prompt = "%s@%s: " % (self.user, self.host)
         except Exception as out:
-            print("Connection or channel creation failed")
+            print("Connection failed")
             print("Error was: ", out)
 
     def request(self, call, *args):
@@ -70,11 +74,13 @@ class Bunny(cmd.Cmd):
             val = request(self.srv)
         except api.PermissionError:
             whoami = self.srv.get_whoami()
-            print("You don't have sufficient permissions to access the user"
-                  " listing. Login info: %s" % repr(whoami))
+            print("You don't have sufficient permissions"
+                  " Login info: %s" % repr(whoami))
             return
-        except (ValueError, IOError, http.HTTPError) as out:
+        except (ValueError, IOError) as out:
             print(repr(type(out)), out)
+        except http.HTTPError as out:
+            print out
         except Exception as out:
             print(repr(type(out)), out)
         else:
@@ -82,23 +88,28 @@ class Bunny(cmd.Cmd):
 
     def do_list_users(self, line):
         """
-        This is the docstring for do_list_users2. A call to do_help should
-        spit this out in the absence of a help_list_users2 method.
+        Lists user names and admin priv status.
         """
         users = self.request('get_users')
-        for user in users:
-            u = "Name: {name}\nAdmin: {administrator}\n".format(**user)
-            print u
+        if users:
+            for user in users:
+                u = "Name: {name}\nAdmin: {administrator}\n".format(**user)
+                print u
 
     def do_list_vhosts(self, name):
+        """
+        Lists names of each RabbitMQ vhost
+        """
         vhosts = self.request('get_all_vhosts')
         for vname in [i['name'] for i in vhosts]:
             print vname
 
     @parse_keyval_args
     def do_create_queue(self, vhost, qname):
-        res = self.request('create_queue', qname, vhost)
-        print res
+        """
+        Creates a queue named <qname> in vhost <vhost>
+        """
+        self.request('create_queue', qname, vhost)
 
     def help_create_queue(self):
         print("\n".join([
@@ -108,6 +119,9 @@ class Bunny(cmd.Cmd):
 
     @parse_keyval_args
     def do_purge_queue(self, vhost, qname):
+        """
+        Removes all messages from a named queue.
+        """
         msgcount = self.request('purge_queue', vhost, qname)
         print("Purged messages: %s\n" % msgcount)
 
@@ -117,9 +131,9 @@ class Bunny(cmd.Cmd):
 
     def do_qlist(self, s):
         print("\n")
-        out_fmt = "{0:<20}|{1:<20}|{2:<20}|{3:<20}"
-        cell_line = ('-'*20+'+')*4
-        hdr_fields = ["Vhost", "Queue", "Consumers", "Idle Since"]
+        out_fmt = "{0:<20}|{1:<20}|{2:<20}|{3:<20}|{4:<20}"
+        cell_line = ('-'*20+'+')*5
+        hdr_fields = ["Vhost", "Queue", "Consumers", "Depth", "Idle Since"]
         hdr = out_fmt.format(*hdr_fields)
         print(hdr)
         print(cell_line)
@@ -133,15 +147,16 @@ class Bunny(cmd.Cmd):
                 for queue in queues:
                     idle_since = queue['idle_since']
                     consumers = queue['consumers']
-                    print(out_fmt.format(vname, queue['name'],
-                                     consumers, idle_since))
+                    msgs = queue['messages']
+                    print(out_fmt.format(vname, queue['name'], msgs,
+                                         consumers, idle_since))
                     print(cell_line)
-
-    def do_queue_detail(self, args):
-        pass
 
     @parse_keyval_args
     def do_delete_queue(self, vhost, qname):
+        """
+        Completely eradicates a queue. It's gone. No going back.
+        """
         self.request('delete_queue', vhost, qname)
 
     def help_delete_queue(self):
@@ -150,6 +165,9 @@ class Bunny(cmd.Cmd):
 
     @parse_keyval_args
     def do_create_exchange(self, name, vhost='/', type='direct'):
+        """
+        Creates a new exchange named <name>.
+        """
         self.request('create_exchange', vhost, name, type)
 
     def help_create_exchange(self):
@@ -159,6 +177,9 @@ class Bunny(cmd.Cmd):
         print("\n".join(lines))
 
     def do_xlist(self, s):
+        """
+        List all of the exchanges, broken down by vhost.
+        """
         print("\n")
         for vhost in self.srv.get_all_vhosts():
             vname = vhost['name']
@@ -174,6 +195,9 @@ class Bunny(cmd.Cmd):
 
     @parse_keyval_args
     def do_delete_exchange(self, vhost, name):
+        """
+        Delete an exchange named <name> in vhost <vhost>.
+        """
         self.request('delete_exchange', vhost, name)
 
     def help_delete_exchange(self):
@@ -181,12 +205,17 @@ class Bunny(cmd.Cmd):
                          "\tDeletes the named exchange."]))
 
     @parse_keyval_args
-    def do_create_binding(self, vhost, qname, exchange):
-        self.request('create_binding', vhost, qname, exchange)
+    def do_create_binding(self, vhost, qname, exchange, rt_key):
+        """
+        Creates a binding between a queue and exchange. Exchange-to-exchange
+        bindings are not yet supported.
+        """
+        self.request('create_binding', vhost, exchange, qname, rt_key)
 
     def help_create_binding(self):
-        lines =["\tcreate_binding vhost=<vhost> exchange=<exch> qname=<qname>",
-                "\tBinds given queue to named exchange"]
+        lines =["\tcreate_binding vhost=<vhost> exchange=<exch> qname=<qname>"
+                " rt_key=<rt_key>",
+                "\tBinds given queue to named exchange using given rt_key"]
         print("\n".join(lines))
 
     @parse_keyval_args
@@ -217,11 +246,18 @@ class Bunny(cmd.Cmd):
                 print(line)
 
     def help_list_queue_bindings(self):
-        print("\n".join(["\tlist_queue_bindings queue=<queue> vhost=<vhost>",
+        print("\n".join(["\tlist_queue_bindings qname=<qname> vhost=<vhost>",
                          "\tList binding details for the named queue"]))
 
     @parse_keyval_args
     def do_send_message(self, vhost, exchange, rt_key, msg):
+        """
+        This actually uses the HTTP REST Management api to push a message into
+        an exchange. It DOES NOT USE THE AMQP PROTOCOL. Therefore, it's a good
+        way to test that, say, a routing key works as you expect, but it's not
+        a good sanity check against your amqplib code. It's perfectly
+        reasonable for this to work while your code is broken. ;-)
+        """
         self.request('publish', vhost, exchange, rt_key, msg)
 
     def help_send_message(self):
@@ -232,19 +268,26 @@ class Bunny(cmd.Cmd):
 
     @parse_keyval_args
     def do_dump_message(self, vhost, qname):
-        """This only does a basic_get right now. You can't specify a particular message."""
+        """
+        This only does a basic_get right now. You can't specify a
+        particular message.
+
+        """
         msg = self.request('get_messages', vhost, qname)
         if msg is not None:
-            print(msg.body)
+            print(msg[0]['payload'])
         else:
             print("No messages in that queue")
 
     def help_dump_message(self):
-        print("\n".join(["\tdump_message <queue>",
+        print("\n".join(["\tdump_message vhost=<vhost> qname=<queue>",
                          "\tPops a message off the queue and dumps the body to output."]))
 
     @parse_keyval_args
     def do_get_status(self, vhost, qname):
+        """
+        Lists number of messages and consumers for a queue.
+        """
         q_properties = self.request('get_queue', vhost, qname)
         print q_properties
 
@@ -262,14 +305,59 @@ class Bunny(cmd.Cmd):
     def do_exit(self):
         return True
 
-    def parseargs(self, args):
-        d = dict(arg.split('=') for arg in args.split())
-        return d
+def do_options():
+    parser = argparse.ArgumentParser(prog='bunny',
+                                  description="A CLI for interacting w/ the " \
+                                              "RabbitMQ Management API.")
+    parser.add_argument('-c', '--config', type=str, default=None,
+                        help='Path to configuration file')
+
+    parser.add_argument('-u', '--user', type=str, default=None,
+                        help="user to connect to RabbitMQ as.")
+
+    parser.add_argument('-r', '--rabbithost', type=str, default=None,
+                        help='The host to connect to. This is the name of' \
+                             ' a connection def in the config if -c is ' \
+                             'used.')
+    parser.add_argument('-p', '--port', type=int, default=None,
+                        help="The port to connect to RabbitMQ with.")
+
+    parser.add_argument('-a', '--auth', type=str, default=None,
+                        help="password to use to connect to RabbitMQ.")
+
+    parser.add_argument('-x', '--execute', type=str, default=None,
+                        help='command string to execute')
+
+    args = parser.parse_args()
+    return args
 
 
 if __name__ == '__main__':
-    shell = Bunny()
-    if len(sys.argv) > 1:
-        shell.onecmd(' '.join(sys.argv[1:]))
+    args = do_options()
+
+    if args.config:
+        # if there's a config arg, there should also be a host arg.
+        if not args.rabbithost:
+            raise Exception("Specify a '-r' option so bunny knows where in "
+                            "the config to look for connection parameters.")
+        with open(args.config, 'r') as conf:
+            config = yaml.load(conf)
+
+        # prefer the config values, filling in values in args as needed.
+        config = config[args.rabbithost]
+        host = config.get('host', args.rabbithost)
+        port = config.get('port', args.port)
+        user = config.get('user', args.user)
+        password = config.get('password', args.auth)
+    else:
+        # there's no config option at all: get all from args.
+        host = args.rabbithost
+        port = args.port
+        user = args.user
+        password = args.auth
+
+    shell = Bunny(host, port, user, password)
+    if args.execute:
+        shell.onecmd(args.execute)
     else:
         shell.cmdloop()

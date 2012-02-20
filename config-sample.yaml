@@ -1,0 +1,6 @@
+%YAML 1.2
+---
+
+localhost:
+  host: localhost
+  port: 55672
