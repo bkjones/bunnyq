@@ -28,16 +28,16 @@ Features
 -------------
 
 - It's easy to use and works on any RabbitMQ server running the HTTP
-   Management API.
+Management API.
 - Provides an interactive shell to issue commands to the server.
 - Optional 'one-shot' mode: you don't *have* to launch a full-blown shell if
-   you just want to send one command to a host.
+you just want to send one command to a host.
 - Optional config file makes it easy to deal with managing a lot of servers
-   without getting carpal tunnel syndrome.
+without getting carpal tunnel syndrome.
 - Really easy to extend to add new commands.
 - If readline is available, command history and completion should
-   work. On my test machine (a mac running Lion), history and
-   completion both work.
+work. On my test machine (a mac running Lion), history and
+completion both work.
 
 Requirements
 ----------------
