@@ -1,9 +1,9 @@
 =================
-What is Bunny?
+What is Bunnyq?
 =================
 
 
-Bunny aims to be a RabbitMQ administration and testing/development swiss
+Bunnyq aims to be a RabbitMQ administration and testing/development swiss
 army knife. It allows you to do a large (and growing) number of tasks that are
 supported by RabbitMQ's RESTful HTTP Management API. To get a list of current
 tasks that are supported, run '?' from within the shell. Here's the output
@@ -41,5 +41,15 @@ Requirements
 - pyrabbit (I wrote this too: http://pypi.python.org/pypi/pyrabbit)
 - PyYaml (http://pypi.python.org/pypi/PyYAML)
 
+Installation
+------------------
 
+::
+
+ $ sudo pip install bunnyq
+
+Installation puts a command called 'bunnyq' in your path, so running
+'bunnyq' at a command line should get you where you want to go. For help
+run 'bunnyq --help', and for help with commands within the bunnyq shell, type
+'?' in the bunnyq shell.
 

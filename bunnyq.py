@@ -32,7 +32,7 @@ def parse_keyval_args(func):
 
 class Bunny(cmd.Cmd):
     """Represents a session between a client and a RabbitMQ server, so you can
-     pass commands using syntax like "bunny.connect(), bunny.delete_queue" etc.
+     pass commands using syntax like "bunnyq.connect(), bunnyq.delete_queue" etc.
 
      """
 
@@ -310,7 +310,7 @@ class Bunny(cmd.Cmd):
         return True
 
 def do_options():
-    parser = argparse.ArgumentParser(prog='bunny',
+    parser = argparse.ArgumentParser(prog='bunnyq',
                                   description="A CLI for interacting w/ the " \
                                               "RabbitMQ Management API.")
     parser.add_argument('-c', '--config', type=str, default=None,
@@ -335,14 +335,13 @@ def do_options():
     args = parser.parse_args()
     return args
 
-
-if __name__ == '__main__':
+def main():
     args = do_options()
 
     if args.config:
         # if there's a config arg, there should also be a host arg.
         if not args.rabbithost:
-            raise Exception("Specify a '-r' option so bunny knows where in "
+            raise Exception("Specify a '-r' option so bunnyq knows where in "
                             "the config to look for connection parameters.")
         with open(args.config, 'r') as conf:
             config = yaml.load(conf)
@@ -365,3 +364,6 @@ if __name__ == '__main__':
         shell.onecmd(args.execute)
     else:
         shell.cmdloop()
+
+if __name__ == '__main__':
+    main()
