@@ -130,6 +130,10 @@ class Bunny(cmd.Cmd):
                          "\tPurges a queue of all content."]))
 
     def do_qlist(self, s):
+        """
+        Provides a listing of queues, including number of consumers,
+        queue depth, etc.
+        """
         print("\n")
         out_fmt = "{0:<20}|{1:<20}|{2:<20}|{3:<20}|{4:<20}"
         cell_line = ('-'*20+'+')*5
@@ -292,7 +296,7 @@ class Bunny(cmd.Cmd):
         print q_properties
 
     def help_get_status(self):
-        print("\n".join(["\tget_status <queue>",
+        print("\n".join(["\tget_status vhost=<vhost> qname=<qname>",
                          "\tReports number of messages and consumers for a queue"]))
 
     def emptyline(self):
