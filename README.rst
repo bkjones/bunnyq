@@ -1,3 +1,4 @@
+=================
 What is Bunny?
 =================
 
@@ -112,7 +113,7 @@ Here's a sample run:
   --------------------+--------------------+--------------------+--------------------+--------------------+
 
 Features
-===========
+-------------
 
  - It's easy to use and works on any RabbitMQ server running the HTTP
    Management API.
@@ -127,7 +128,7 @@ Features
    completion both work.
 
 Requirements
-===============
+----------------
 
  - argparse (unless you're using Python >=2.7. Get a backported argparse for
          Python <=2.6 at http://pypi.python.org/pypi/argparse)
