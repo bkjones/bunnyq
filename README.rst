@@ -2,6 +2,7 @@
 What is Bunny?
 =================
 
+
 Bunny aims to be a RabbitMQ administration and testing/development swiss
 army knife. It allows you to do a large (and growing) number of tasks that are
 supported by RabbitMQ's RESTful HTTP Management API. To get a list of current
