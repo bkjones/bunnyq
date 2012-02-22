@@ -1,12 +1,14 @@
 from setuptools import setup, find_packages
 
-version = '1.0.1'
+version = '1.0.2'
 
 setup(name='bunnyq',
       version=version,
       description="A command shell and CLI app for testing/administering RabbitMQ " \
                   "using its RESTful HTTP Management API.",
       summary="A command shell for testing/administering RabbitMQ " \
+                  "using its RESTful HTTP Management API.",
+      long_description="A command shell and CLI app for testing/administering RabbitMQ " \
                   "using its RESTful HTTP Management API.",
       docs_url='http://github.com/bkjones/bunnyq',
       classifiers=[
