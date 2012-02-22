@@ -4,8 +4,11 @@ version = '1.0'
 
 setup(name='bunnyq',
       version=version,
-      description="A command shell for testing/administering RabbitMQ " \
+      description="A command shell and CLI app for testing/administering RabbitMQ " \
                   "using its RESTful HTTP Management API.",
+      summary="A command shell for testing/administering RabbitMQ " \
+                  "using its RESTful HTTP Management API.",
+      docs_url='http://github.com/bkjones/bunnyq',
       classifiers=[
           "Intended Audience :: Developers",
           "Intended Audience :: System Administrators",
@@ -22,6 +25,8 @@ setup(name='bunnyq',
       install_requires = ['pyyaml', 'pyrabbit', 'argparse'],
       author='Brian K. Jones',
       author_email='bkjones@gmail.com',
+      maintainer='Brian K. Jones',
+      maintainer_email='bkjones@gmail.com',
       url='http://www.github.com/bkjones/bunnyq',
       download_url='http://www.github.com/bkjones/bunnyq',
       license='MIT',
